@@ -202,7 +202,7 @@ static inline int ff_j2k_ceildiv(int a, int b)
 J2kTgtNode *ff_j2k_tag_tree_init(int w, int h);
 
 /* TIER-1 routines */
-int ff_j2k_init_tier1_luts();
+int ff_j2k_init_tier1_luts(void);
 
 void ff_j2k_set_significant(J2kT1Context *t1, int x, int y, int negative);
 

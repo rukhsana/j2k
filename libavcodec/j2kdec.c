@@ -977,6 +977,8 @@ static int decode_frame(AVCodecContext *avctx,
     AVFrame *picture = data;
     int tileno, ret;
 
+   av_log(s->avctx, AV_LOG_INFO, "start ruby\n");
+  
     s->avctx = avctx;
     av_log(s->avctx, AV_LOG_DEBUG, "start\n");
 
@@ -1015,6 +1017,8 @@ static int decode_frame(AVCodecContext *avctx,
 
     *data_size = sizeof(AVPicture);
     *picture = s->picture;
+
+	av_log(s->avctx, AV_LOG_INFO, "\nend ruby\n");
 
     return s->buf - s->buf_start;
 }
