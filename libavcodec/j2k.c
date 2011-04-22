@@ -112,11 +112,11 @@ static int getnbctxno(int flag, int bandno, int vert_causal_ctx_csty_symbol)
    h = ((flag & J2K_T1_SIG_E) ? 1:0)+
         ((flag & J2K_T1_SIG_W) ? 1:0);
     v = ((flag & J2K_T1_SIG_N) ? 1:0);
-    if(!vert_causal_ctx_csty_symbol)
-        v = v + ((flag & J2K_T1_SIG_S) ? 1:0);
+    if (!vert_causal_ctx_csty_symbol)
+         v = v + ((flag & J2K_T1_SIG_S) ? 1:0);
     d = ((flag & J2K_T1_SIG_NE) ? 1:0)+
         ((flag & J2K_T1_SIG_NW) ? 1:0);
-    if(!vert_causal_ctx_csty_symbol)
+    if (!vert_causal_ctx_csty_symbol)
         d = d + ((flag & J2K_T1_SIG_SE) ? 1:0)+
                 ((flag & J2K_T1_SIG_SW) ? 1:0);
     if (bandno < 3){
