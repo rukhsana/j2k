@@ -608,7 +608,7 @@ static void decode_sigpass(J2kT1Context *t1, int width, int height, int bpno, in
                     vert_causal_ctx_csty_symbol = vert_causal_ctx_csty_symbol && (x == 3 && y == 3);
                     if (ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + ff_j2k_getnbctxno(t1->flags[y+1][x+1], bandno, vert_causal_ctx_csty_symbol))){
                         int xorbit, ctxno = ff_j2k_getsgnctxno(t1->flags[y+1][x+1], &xorbit);
-			if (bpass_csty_symbol)
+                        if (bpass_csty_symbol)
                              t1->data[y][x] = ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + ctxno) ? -mask : mask;
                         else
                              t1->data[y][x] = (ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + ctxno) ^ xorbit) ? -mask : mask;
@@ -714,14 +714,14 @@ static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Contex
                     break;
             case 1: 
 		    decode_refpass(t1, width, height, bpno+1);
-		    if (bpass_csty_symbol && clnpass_cnt >= 4)
+                    if (bpass_csty_symbol && clnpass_cnt >= 4)
                         ff_mqc_initdec(&t1->mqc, cblk->data);
                     break;
             case 2: 
 		    decode_clnpass(s, t1, width, height, bpno+1, bandpos,
                                    codsty->cblk_style & J2K_CBLK_SEGSYM);
 		    clnpass_cnt = clnpass_cnt + 1;
-		    if (bpass_csty_symbol && clnpass_cnt >= 4)
+                    if (bpass_csty_symbol && clnpass_cnt >= 4)
                         ff_mqc_initdec(&t1->mqc, cblk->data);
                     break;
         }
