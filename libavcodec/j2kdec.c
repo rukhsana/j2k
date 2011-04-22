@@ -303,8 +303,6 @@ static int get_cod(J2kDecoderContext *s, J2kCodingStyle *c, uint8_t *properties)
     J2kCodingStyle tmp;
     int compno;
 
-
-
     if (s->buf_end - s->buf < 5)
         return AVERROR(EINVAL);
 
@@ -595,6 +593,7 @@ static int decode_packets(J2kDecoderContext *s, J2kTile *tile)
 }
 
 /* TIER-1 routines */
+
 static void decode_sigpass(J2kT1Context *t1, int width, int height, int bpno, int bandno, int bpass_csty_symbol, 
                            int vert_causal_ctx_csty_symbol)
 {
@@ -608,6 +607,7 @@ static void decode_sigpass(J2kT1Context *t1, int width, int height, int bpno, in
                     vert_causal_ctx_csty_symbol = vert_causal_ctx_csty_symbol && (x == 3 && y == 3);
                     if (ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + ff_j2k_getnbctxno(t1->flags[y+1][x+1], bandno, vert_causal_ctx_csty_symbol))){
                         int xorbit, ctxno = ff_j2k_getsgnctxno(t1->flags[y+1][x+1], &xorbit);
+
                         if (bpass_csty_symbol)
                              t1->data[y][x] = ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + ctxno) ? -mask : mask;
                         else
@@ -709,8 +709,8 @@ static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Contex
 
     while(passno--){
         switch(pass_t){
-            case 0: decode_sigpass(t1, width, height, bpno+1, bandpos, bpass_csty_symbol && (clnpass_cnt >= 4), 
-                                   vert_causal_ctx_csty_symbol);
+            case 0: decode_sigpass(t1, width, height, bpno+1, bandpos, bpass_csty_symbol && 
+                                  (clnpass_cnt >= 4), vert_causal_ctx_csty_symbol);
                     break;
             case 1: 
 		    decode_refpass(t1, width, height, bpno+1);
@@ -917,7 +917,6 @@ static int decode_codestream(J2kDecoderContext *s)
         oldbuf = s->buf;
 
         if (marker == J2K_SOD){
-	    
             J2kTile *tile = s->tile + s->curtileno;
             if (ret = init_tile(s, s->curtileno))
                 return ret;
