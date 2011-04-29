@@ -316,7 +316,7 @@ static void dwt_decode97(DWTContext *s, int *t)
     }
 }
 
-int ff_dwt_init(DWTContext *s, uint16_t border[2][2], int decomp_levels, int type)
+int ff_dwt_initg(DWTContext *s, uint16_t border[2][2], int decomp_levels, int type)
 {
     int i, j, lev = decomp_levels, maxlen,
         b[2][2];

@@ -53,7 +53,7 @@ typedef struct {
  * @param decomp_levels number of decomposition levels
  * @param type 0 for DWT 9/7; 1 for DWT 5/3
  */
-int ff_dwt_init(DWTContext *s, uint16_t border[2][2], int decomp_levels, int type);
+int ff_dwt_initg(DWTContext *s, uint16_t border[2][2], int decomp_levels, int type);
 
 int ff_dwt_encode(DWTContext *s, int *t);
 int ff_dwt_decode(DWTContext *s, int *t);
