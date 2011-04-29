@@ -203,7 +203,7 @@ int ff_j2k_init_component(J2kComponent *comp, J2kCodingStyle *codsty, J2kQuantSt
 {
     int reslevelno, bandno, gbandno = 0, ret, i, j, csize = 1;
 
-    if (ret=ff_dwt_init(&comp->dwt, comp->coord, codsty->nreslevels-1, codsty->transform))
+    if (ret=ff_dwt_initg(&comp->dwt, comp->coord, codsty->nreslevels-1, codsty->transform))
         return ret;
     for (i = 0; i < 2; i++)
         csize *= comp->coord[i][1] - comp->coord[i][0];
