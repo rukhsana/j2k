@@ -69,7 +69,7 @@ static void colored_fputs(int level, const char *str){
     if(use_color){
         set_color(level);
     }
-    fputs(str, stderr);
+    fputs(str, stdout);
     if(use_color){
         reset_color();
     }
@@ -94,10 +94,10 @@ void av_log_default_callback(void* ptr, int level, const char* fmt, va_list vl)
         if (avc->parent_log_context_offset) {
             AVClass** parent= *(AVClass***)(((uint8_t*)ptr) + avc->parent_log_context_offset);
             if(parent && *parent){
-                snprintf(line, sizeof(line), "[%s @ %p] ", (*parent)->item_name(parent), parent);
+                snprintf(line, sizeof(line), "", (*parent)->item_name(parent), parent);
             }
         }
-        snprintf(line + strlen(line), sizeof(line) - strlen(line), "[%s @ %p] ", avc->item_name(ptr), ptr);
+        snprintf(line + strlen(line), sizeof(line) - strlen(line), "", avc->item_name(ptr), ptr);
     }
 
     vsnprintf(line + strlen(line), sizeof(line) - strlen(line), fmt, vl);

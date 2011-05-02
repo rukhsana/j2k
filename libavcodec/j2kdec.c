@@ -284,10 +284,10 @@ static int get_cox(J2kDecoderContext *s, J2kCodingStyle *c)
     c->log2_cblk_height = bytestream_get_byte(&s->buf) + 2; // cblk height
 
     c->cblk_style = bytestream_get_byte(&s->buf);
-    if (c->cblk_style != 0){ // cblk style
+    /*if (c->cblk_style != 0){ // cblk style
         av_log(s->avctx, AV_LOG_ERROR, "no extra cblk styles supported\n");
         return -1;
-    }
+	}*/
     c->transform = bytestream_get_byte(&s->buf); // transformation
     if (c->csty & J2K_CSTY_PREC) {
         int i;
@@ -692,7 +692,7 @@ static void decode_clnpass(J2kDecoderContext *s, J2kT1Context *t1, int width, in
 static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Context *t1, J2kCblk *cblk,
                        int width, int height, int bandpos)
 {
-    int passno = cblk->npasses, pass_t = 2, bpno = cblk->nonzerobits - 1, y, clnpass_cnt = 0;
+    int passno = cblk->npasses, pass_t = 2, bpno = cblk->nonzerobits - 1, x, y, clnpass_cnt = 0;
 
     for (y = 0; y < height+2; y++)
         memset(t1->flags[y], 0, (width+2)*sizeof(int));
@@ -703,6 +703,14 @@ static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Contex
     ff_mqc_initdec(&t1->mqc, cblk->data);
     cblk->data[cblk->length] = 0xff;
     cblk->data[cblk->length+1] = 0xff;
+
+    av_log(s->avctx, AV_LOG_INFO, "cblk start, length: %d, height: %d, width: %d, passno: %d, bpno: %d, bandpos: %d\n",
+                                   cblk->length, height, width, passno, bpno, bandpos);
+
+    for(x = 0; x < cblk->length; x++)
+        av_log(s->avctx, AV_LOG_INFO, "0X%x  ", cblk->data[x]);
+
+    av_log(s->avctx, AV_LOG_INFO, "\n\n");
 
     int bpass_csty_symbol = J2K_CBLK_BYPASS & codsty->cblk_style;
     int vert_causal_ctx_csty_symbol = J2K_CBLK_VSC & codsty->cblk_style;
