@@ -322,7 +322,9 @@ static int get_cod(J2kDecoderContext *s, J2kCodingStyle *c, uint8_t *properties)
     get_cox(s, &tmp);
     for (compno = 0; compno < s->ncomponents; compno++){
         if (!(properties[compno] & HAD_COC))
-            memcpy(c + compno, &tmp, sizeof(J2kCodingStyle));
+	{
+	   memcpy(c + compno, &tmp, sizeof(J2kCodingStyle));
+        }
     }
     return 0;
 }
@@ -330,7 +332,7 @@ static int get_cod(J2kDecoderContext *s, J2kCodingStyle *c, uint8_t *properties)
 /** get coding parameters for a component in the whole image on a particular tile */
 static int get_coc(J2kDecoderContext *s, J2kCodingStyle *c, uint8_t *properties)
 {
-    int compno;
+    int compno, csty;
 
     if (s->buf_end - s->buf < 2)
         return AVERROR(EINVAL);
@@ -338,7 +340,9 @@ static int get_coc(J2kDecoderContext *s, J2kCodingStyle *c, uint8_t *properties)
     compno = bytestream_get_byte(&s->buf);
 
     c += compno;
-    c->csty = bytestream_get_byte(&s->buf);
+    csty = bytestream_get_byte(&s->buf);
+    c->csty = c->csty | (csty & 0xFE);
+
     get_cox(s, c);
 
     properties[compno] |= HAD_COC;
@@ -418,6 +422,7 @@ static int get_qcc(J2kDecoderContext *s, int n, J2kQuantStyle *q, uint8_t *prope
 /** get start of tile segment */
 static uint8_t get_sot(J2kDecoderContext *s)
 {
+
     if (s->buf_end - s->buf < 4)
         return AVERROR(EINVAL);
 
@@ -493,13 +498,29 @@ static int getlblockinc(J2kDecoderContext *s)
 static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLevel *rlevel, int precno,
                          int layno, uint8_t *expn, int numgbits)
 {
-    int bandno, cblkny, cblknx, cblkno, ret;
+    int bandno, cblkny, cblknx, cblkno, ret, marker, len;
 
-    if (!(ret = get_bits(s, 1))){
+   av_log(s->avctx, AV_LOG_INFO, "start decode_packet %d\n", s->buf - s->buf_start);
+
+
+   /*av_log(s->avctx, AV_LOG_INFO, "csty = %x\n", codsty->csty);
+   if (codsty->csty & J2K_CSTY_SOP)
+   {
+     av_log(s->avctx, AV_LOG_INFO, "inside marker\n");
+     marker = bytestream_get_be16(&s->buf);
+     if (marker != J2K_SOP)
+       return -1;
+     len = bytestream_get_be16(&s->buf);
+     s->buf += len -2;
+     }*/
+
+   if (!(ret = get_bits(s, 1))){
         j2k_flush(s);
         return 0;
     } else if (ret < 0)
         return ret;
+
+
 
     for (bandno = 0; bandno < rlevel->nbands; bandno++){
         J2kBand *band = rlevel->band + bandno;
@@ -519,6 +540,7 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
                     incl = get_bits(s, 1);
                 else
                     incl = tag_tree_decode(s, prec->cblkincl + pos, layno+1) == layno;
+                av_log(s->avctx, AV_LOG_INFO, "included = %d\n", incl);
                 if (!incl)
                     continue;
                 else if (incl < 0)
@@ -528,16 +550,21 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
                     cblk->nonzerobits = expn[bandno] + numgbits - 1 - tag_tree_decode(s, prec->zerobits + pos, 100);
                 if ((newpasses = getnpasses(s)) < 0)
                     return newpasses;
+                av_log(s->avctx, AV_LOG_INFO, "newpasses = %d\n", newpasses);
                 if ((llen = getlblockinc(s)) < 0)
                     return llen;
+                av_log(s->avctx, AV_LOG_INFO, "increment = %d\n", llen);
                 cblk->lblock += llen;
                 if ((ret = get_bits(s, av_log2(newpasses) + cblk->lblock)) < 0)
                     return ret;
+                av_log(s->avctx, AV_LOG_INFO, "len = %d\n", ret);
                 cblk->lengthinc = ret;
                 cblk->npasses += newpasses;
             }
     }
     j2k_flush(s);
+
+    av_log(s->avctx, AV_LOG_INFO, "before end of packet header %d\n", s->buf - s->buf_start);
 
     if (codsty->csty & J2K_CSTY_EPH) {
         if (AV_RB16(s->buf) == J2K_EPH) {
@@ -704,13 +731,13 @@ static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Contex
     cblk->data[cblk->length] = 0xff;
     cblk->data[cblk->length+1] = 0xff;
 
-    av_log(s->avctx, AV_LOG_INFO, "cblk start, length: %d, height: %d, width: %d, passno: %d, bpno: %d, bandpos: %d\n",
+    /*av_log(s->avctx, AV_LOG_INFO, "cblk start, length: %d, height: %d, width: %d, passno: %d, bpno: %d, bandpos: %d\n",
                                    cblk->length, height, width, passno, bpno, bandpos);
 
     for(x = 0; x < cblk->length; x++)
-        av_log(s->avctx, AV_LOG_INFO, "0X%x  ", cblk->data[x]);
+        av_log(s->avctx, AV_LOG_INFO, "0X%x  ", (int8_t)cblk->data[x]);
 
-    av_log(s->avctx, AV_LOG_INFO, "\n\n");
+    av_log(s->avctx, AV_LOG_INFO, "\n\n");*/
 
     int bpass_csty_symbol = J2K_CBLK_BYPASS & codsty->cblk_style;
     int vert_causal_ctx_csty_symbol = J2K_CBLK_VSC & codsty->cblk_style;
