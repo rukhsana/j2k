@@ -503,7 +503,7 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
    av_log(s->avctx, AV_LOG_INFO, "start decode_packet %d\n", s->buf - s->buf_start);
 
 
-   /*av_log(s->avctx, AV_LOG_INFO, "csty = %x\n", codsty->csty);
+   av_log(s->avctx, AV_LOG_INFO, "csty = %x\n", codsty->csty);
    if (codsty->csty & J2K_CSTY_SOP)
    {
      av_log(s->avctx, AV_LOG_INFO, "inside marker\n");
@@ -512,7 +512,7 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
        return -1;
      len = bytestream_get_be16(&s->buf);
      s->buf += len -2;
-     }*/
+   }
 
    if (!(ret = get_bits(s, 1))){
         j2k_flush(s);
