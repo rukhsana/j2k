@@ -101,9 +101,9 @@ enum J2kQuantsty{ ///< quantization style
 #define J2K_CSTY_EPH       0x04 // EPH marker present
 
 /* Tier-1 coding pass types. */
-#define	J2K_SIGPASS	0	/* significance */
-#define	J2K_REFPASS	1	/* refinement */
-#define	J2K_CLNPASS	2	/* cleanup */
+#define J2K_SIGPASS     0     /* significance */
+#define J2K_REFPASS     1     /* refinement */
+#define J2K_CLNPASS     2     /* cleanup */
 
 
 typedef struct {
@@ -144,7 +144,7 @@ typedef struct {
 } J2kPass;
 
 typedef struct {
-    unint16_t index;
+    uint16_t index;
     uint8_t npasses;
     uint8_t maxpasses;
     uint8_t firstpassno;
@@ -155,6 +155,8 @@ typedef struct {
     uint8_t npasses;
     uint8_t ninclpasses; ///< number coding of passes included in codestream
     uint8_t nonzerobits;
+    uint8_t firstpassno;
+    uint8_t num_segs;
     uint16_t length;
     uint16_t lengthinc;
     uint8_t lblock;

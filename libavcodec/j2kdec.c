@@ -468,6 +468,80 @@ static int init_tile(J2kDecoderContext *s, int tileno)
     return 0;
 }
 
+static int getpasstype(int passno)
+{
+        int passtype;
+        switch (passno % 3) {
+        case 0:
+                passtype = J2K_CLNPASS;
+                break;
+        case 1:
+                passtype = J2K_SIGPASS;
+                break;
+        case 2:
+                passtype = J2K_REFPASS;
+                break;
+        default:
+                passtype = -1;
+                assert(0);
+                break;
+        }
+        return passtype;
+}
+
+static int getsegpasscnt(int passno, int firstpassno, int numpasses, int bypass, int termall)
+{
+     int ret;
+     int passtype;
+
+     if (termall) {
+         ret = 1;
+     } else if (bypass) {
+            if (passno < firstpassno + 10) {
+               ret = 10 - (passno - firstpassno);
+            } else {
+                      passtype = getpasstype(passno);
+                      switch (passtype) {
+                        case J2K_SIGPASS:
+                             ret = 2;
+                             break;
+                        case J2K_REFPASS:
+                             ret = 1;
+                             break;
+                        case J2K_CLNPASS:
+                             ret = 1;
+                             break;
+                        default:
+                             ret = -1;
+                             assert(0);
+                             break;
+                      }
+                  }
+       } else {
+         ret = 32 * 3 - 2;
+     }
+     ret = FFMIN(ret, numpasses - passno);
+     return ret;
+}
+
+
+/* Calculate the integer quantity floor(log2(x)), where x is a positive
+  integer. */
+static int floor_log2(int x)
+{
+    int y;
+
+    /* The argument must be positive. */
+    assert(x > 0);
+    y = 0;
+    while (x > 1) {
+         x >>= 1;
+         ++y;
+    }
+    return y;
+}
+
+
 /** read the number of coding passes */
 static int getnpasses(J2kDecoderContext *s)
 {
@@ -514,12 +588,15 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
      s->buf += len -2;
    }
 
+   av_log(s->avctx, AV_LOG_INFO, "before flush pointer: %d\n", s->buf - s->buf_start);
+
    if (!(ret = get_bits(s, 1))){
-        j2k_flush(s);
+     //j2k_flush(s);
         return 0;
     } else if (ret < 0)
         return ret;
 
+   av_log(s->avctx, AV_LOG_INFO, "after flush pointer: %d\n", s->buf - s->buf_start);
 
 
     for (bandno = 0; bandno < rlevel->nbands; bandno++){
@@ -534,7 +611,8 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
         for (cblkny = prec->yi0; cblkny < prec->yi1; cblkny++)
             for(cblknx = prec->xi0, cblkno = cblkny * band->cblknx + cblknx; cblknx < prec->xi1; cblknx++, cblkno++, pos++){
                 J2kCblk *cblk = band->cblk + cblkno;
-                int incl, newpasses, llen;
+                int incl, newpasses, llen, n, savenewpasses, mycounter, maxpasses, num_segs, index, passno;
+
 
                 if (cblk->npasses)
                     incl = get_bits(s, 1);
@@ -547,19 +625,48 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
                     return incl;
 
                 if (!cblk->npasses)
+		{
                     cblk->nonzerobits = expn[bandno] + numgbits - 1 - tag_tree_decode(s, prec->zerobits + pos, 100);
+                    cblk->firstpassno = cblk->nonzerobits * 3;
+                }
                 if ((newpasses = getnpasses(s)) < 0)
-                    return newpasses;
+		  return newpasses;
                 av_log(s->avctx, AV_LOG_INFO, "newpasses = %d\n", newpasses);
-                if ((llen = getlblockinc(s)) < 0)
-                    return llen;
-                av_log(s->avctx, AV_LOG_INFO, "increment = %d\n", llen);
-                cblk->lblock += llen;
-                if ((ret = get_bits(s, av_log2(newpasses) + cblk->lblock)) < 0)
-                    return ret;
-                av_log(s->avctx, AV_LOG_INFO, "len = %d\n", ret);
-                cblk->lengthinc = ret;
-                cblk->npasses += newpasses;
+
+                savenewpasses = newpasses;
+		mycounter = 0;
+                if (newpasses > 0){
+                    if ((llen = getlblockinc(s)) < 0)
+                        return llen;
+                    av_log(s->avctx, AV_LOG_INFO, "increment = %d\n", llen);
+                    cblk->lblock += llen;
+                    num_segs = 0;
+                    index = 0;
+                    while (newpasses > 0){
+                        passno = cblk->firstpassno + cblk->npasses + mycounter;
+                       /* XXX - the maxpasses is not set precisely but this doesn't matter... */
+		        maxpasses = getsegpasscnt(passno, cblk->firstpassno, 10000, (codsty->cblk_style & J2K_CBLK_BYPASS)
+                                                  != 0, (codsty->cblk_style & J2K_CBLK_TERMALL) != 0);
+                        cblk->segs[num_segs].passno = passno;
+                        cblk->segs[num_segs].maxpasses = maxpasses;
+                        n = FFMIN(newpasses, maxpasses);
+                        av_log(s->avctx, AV_LOG_INFO, "maxpasses = %d, passno = %d, n = %d\n", maxpasses, passno, n);
+			mycounter += n;
+			newpasses -= n;
+
+			if ((len = get_bits(s, cblk->lblock + floor_log2(n))) < 0) {
+			    return len;
+			}
+                        cblk->segs[num_segs].npasses += n;
+                        cblk->segs[num_segs].index = index;
+                        index += len;
+			num_segs = num_segs + 1;
+                        av_log(s->avctx, AV_LOG_INFO, "len = %d\n", ret);
+                    }
+                }
+                cblk->length = index;
+                cblk->num_segs = num_segs;
+                cblk->npasses += savenewpasses;
             }
     }
     j2k_flush(s);
@@ -578,14 +685,15 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
         J2kBand *band = rlevel->band + bandno;
         int yi, cblknw = band->prec[precno].xi1 - band->prec[precno].xi0;
         for (yi = band->prec[precno].yi0; yi < band->prec[precno].yi1; yi++){
-            int xi;
+            int xi, i, cnt;
             for (xi = band->prec[precno].xi0; xi < band->prec[precno].xi1; xi++){
                 J2kCblk *cblk = band->cblk + yi * cblknw + xi;
-                if (s->buf_end - s->buf < cblk->lengthinc)
-                    return AVERROR(EINVAL);
-                bytestream_get_buffer(&s->buf, cblk->data, cblk->lengthinc);
-                cblk->length += cblk->lengthinc;
-                cblk->lengthinc = 0;
+                for (i = 0; i < cblk->num_segs; i++){
+		    cnt = (i + 1 == cblk->num_segs? cblk->length: cblk->segs[i+1].index) - cblk->segs[i].index;
+                    if (s->buf_end - s->buf < cnt)
+                        return AVERROR(EINVAL);
+                    bytestream_get_buffer(&s->buf, &cblk->data[cblk->segs[i].index], cnt);
+                }
             }
         }
     }
@@ -727,7 +835,6 @@ static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Contex
     for (y = 0; y < height; y++)
         memset(t1->data[y], 0, width*sizeof(int));
 
-    ff_mqc_initdec(&t1->mqc, cblk->data);
     cblk->data[cblk->length] = 0xff;
     cblk->data[cblk->length+1] = 0xff;
 
@@ -742,28 +849,37 @@ static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Contex
     int bpass_csty_symbol = J2K_CBLK_BYPASS & codsty->cblk_style;
     int vert_causal_ctx_csty_symbol = J2K_CBLK_VSC & codsty->cblk_style;
 
-    while(passno--){
-        switch(pass_t){
-            case 0: decode_sigpass(t1, width, height, bpno+1, bandpos,
-                                   bpass_csty_symbol && (clnpass_cnt >= 4), vert_causal_ctx_csty_symbol);
-                    break;
-            case 1: decode_refpass(t1, width, height, bpno+1);
-                    if (bpass_csty_symbol && clnpass_cnt >= 4)
-                        ff_mqc_initdec(&t1->mqc, cblk->data);
-                    break;
-            case 2: decode_clnpass(s, t1, width, height, bpno+1, bandpos,
-                                   codsty->cblk_style & J2K_CBLK_SEGSYM);
-                    clnpass_cnt = clnpass_cnt + 1;
-                    if (bpass_csty_symbol && clnpass_cnt >= 4)
-                       ff_mqc_initdec(&t1->mqc, cblk->data);
-                    break;
-        }
+    for (x = 0; cblk->num_segs; x++)
+    {
+         ff_mqc_initdec(&t1->mqc, cblk->data[cblk->segs[x].index]);
 
-        pass_t++;
-        if (pass_t == 3){
-            bpno--;
-            pass_t = 0;
-        }
+         for (y = 0; y < cblk->segs[x].npasses; y++){
+
+             pass_t = (cblk->segs[x].passno + y + 2) % 3;
+
+             switch(pass_t){
+                  case J2K_SIGPASS:
+                          decode_sigpass(t1, width, height, bpno+1, bandpos,
+                                         bpass_csty_symbol && (clnpass_cnt >= 4), vert_causal_ctx_csty_symbol);
+                          break;
+                  case J2K_REFPASS:
+                          decode_refpass(t1, width, height, bpno+1);
+                          if (bpass_csty_symbol && clnpass_cnt >= 4)
+                             ff_mqc_initdec(&t1->mqc, cblk->data);
+                          break;
+                  case J2K_CLNPASS:
+                          decode_clnpass(s, t1, width, height, bpno+1, bandpos,
+                                         codsty->cblk_style & J2K_CBLK_SEGSYM);
+                          clnpass_cnt = clnpass_cnt + 1;
+                          if (bpass_csty_symbol && clnpass_cnt >= 4)
+                             ff_mqc_initdec(&t1->mqc, cblk->data);
+                          break;
+              }
+
+              if (pass_t == 3){
+	         bpno--;
+              }
+         }
     }
     return 0;
 }
